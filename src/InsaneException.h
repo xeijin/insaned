@@ -26,6 +26,11 @@
 #include <string>
 #include <stdexcept>
 
+enum class InsaneErrorType
+{
+    GENERAL=0,
+    OPEN_DEVICE=1
+};
 
 /**
  * The InsaneException class
@@ -33,9 +38,10 @@
 class InsaneException : std::exception
 {
 public:
-    InsaneException(std::string message)
+    InsaneException(std::string message, InsaneErrorType errorType=InsaneErrorType::GENERAL)
         : std::exception(),
-          mMessage(message) {
+          mMessage(message),
+          mType(errorType) {
     }
 
     virtual ~InsaneException();
@@ -44,8 +50,13 @@ public:
         return mMessage.c_str();
     }
 
+    InsaneErrorType type() const  {
+        return mType;
+    }
+
 private:
     std::string mMessage;
+    InsaneErrorType mType;
 };
 
 #endif

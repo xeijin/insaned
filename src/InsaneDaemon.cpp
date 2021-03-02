@@ -21,6 +21,7 @@ const std::string InsaneDaemon::NAME = "insaned";
 
 const int InsaneDaemon::SKIP_TIMEOUT_MS = 2500;
 const int InsaneDaemon::BUSY_TIMEOUT_MS = 15000;
+const int InsaneDaemon::OFF_SLEEP_MS = 3000;
 
 InsaneDaemon InsaneDaemon::mInstance;
 
@@ -73,6 +74,7 @@ InsaneDaemon::~InsaneDaemon() noexcept
 
 void InsaneDaemon::init(std::string device_name, std::string events_dir, int sleep_ms, int verbose, bool log_to_syslog, bool suspend_after_event)
 {
+    device_fixed = !device_name.empty();
     mCurrentDevice = device_name;
     mEventsDir = events_dir;
     mSleepMs = sleep_ms;
@@ -113,7 +115,7 @@ void InsaneDaemon::open(std::string device_name)
                          "devices are installed in your system, you should be able to see a list with\n"
                          "\"scanimage --list-devices\"." << std::endl;
         }
-        throw InsaneException("Failed to open device '" + device_name + "'");
+        throw InsaneException("Failed to open device '" + device_name + "'", InsaneErrorType::OPEN_DEVICE);
     }
     log("timer: sane_open: " + std::to_string(t.restart()) + " ms", 2);
 }
@@ -140,12 +142,9 @@ void InsaneDaemon::close() noexcept
 void InsaneDaemon::run()
 {
     mRun = true;
-    {
-        // try to open the device to select one if no device was given
-        OpenGuard g(mCurrentDevice);
-    }
 
-    log("Starting polling sensors of " + mCurrentDevice + " every " + std::to_string(mSleepMs) + " ms", 1);
+    log("Starting polling sensors every " + std::to_string(mSleepMs) + " ms", 1);
+    char deviceOn = '_'; //use a char to track on(1)/off(0)/unknown(_)
     while (mRun) {
         if (mSuspendCount <= 0) {
             // TODO skip reading sensors if
@@ -154,6 +153,13 @@ void InsaneDaemon::run()
             log("Reading sensors...", 2);
             try {
                 auto sensors = get_sensors();
+                if (deviceOn != '1')
+                {
+                    deviceOn = '1';
+                    log("Using sensors on " + mCurrentDevice, 1);
+                    process_event("on", false);
+                }
+
                 for (auto & sensor : sensors) {
                     if (mRepeatCount.find(sensor.first) != mRepeatCount.end()) {
                         mRepeatCount[sensor.first]--;
@@ -164,6 +170,26 @@ void InsaneDaemon::run()
                 }
             } catch (InsaneException & e) {
                 log(e.what(), 1);
+                if(e.type() == InsaneErrorType::OPEN_DEVICE)
+                {
+                    if (deviceOn != '0')
+                    {
+                        deviceOn = '0';
+                        log("There is a problem with " + mCurrentDevice + " , will scan for devices again after a short wait", 2);
+                        process_event("off", false);
+                    }
+                    if (!device_fixed)
+                    {
+                        // trigger the re-scaning of devices after opening failed
+                        mCurrentDevice.clear();
+                        mDevices.clear();
+                        mSuspendCount = OFF_SLEEP_MS / mSleepMs;
+                    }
+                    else
+                    {
+                        log("Will continue trying to open " + mCurrentDevice, 2);
+                    }
+                }
             }
         } else {
             log("Reading sensors is suspended: " + std::to_string(mSuspendCount) + " events left", 2);
@@ -175,7 +201,7 @@ void InsaneDaemon::run()
 }
 
 
-void InsaneDaemon::process_event(std::string name)
+void InsaneDaemon::process_event(const std::string& name, bool debounce)
 {
     if (mRepeatCount.find(name) != mRepeatCount.end()) {
         int count = mRepeatCount[name];
@@ -184,7 +210,10 @@ void InsaneDaemon::process_event(std::string name)
             return;
         }
     }
-    mRepeatCount[name] = SKIP_TIMEOUT_MS / mSleepMs;
+    if( debounce )
+    {
+        mRepeatCount[name] = SKIP_TIMEOUT_MS / mSleepMs;
+    }
 
     log("Processing event '" + name + "'", 1);
     std::string handler = mEventsDir + "/" + name;
@@ -248,7 +277,7 @@ const std::vector<std::string> InsaneDaemon::get_devices()
             throw InsaneException("Could not list SANE devices");
         }
         if (!device_list[0]) {
-            throw InsaneException("No SANE devices found");
+            throw InsaneException("No SANE devices found", InsaneErrorType::OPEN_DEVICE);
         }
         for (int i = 0; device_list[i]; ++i) {
             mDevices.push_back(device_list[i]->name);
