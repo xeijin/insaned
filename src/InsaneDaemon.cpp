@@ -71,7 +71,7 @@ InsaneDaemon::~InsaneDaemon() noexcept
 }
 
 
-void InsaneDaemon::init(std::string device_name, std::string events_dir, int sleep_ms, int verbose, bool log_to_syslog, bool suspend_after_event)
+void InsaneDaemon::init(std::string device_name, std::string events_dir, int sleep_ms, int verbose, bool log_to_syslog, bool suspend_after_event, bool reattach)
 {
     mCurrentDevice = device_name;
     mEventsDir = events_dir;
@@ -82,6 +82,10 @@ void InsaneDaemon::init(std::string device_name, std::string events_dir, int sle
     mVerbose = verbose;
     mLogToSyslog = log_to_syslog;
     mSuspendAfterEvent = suspend_after_event;
+
+    if (mCurrentDevice.empty()) {
+        mReattach = reattach;
+    }
 }
 
 
@@ -436,7 +440,15 @@ void InsaneDaemon::sighandler(int signum)
 InsaneDaemon::OpenGuard::OpenGuard(const std::string & device)
     : mDaemon(InsaneDaemon::instance()) {
     mDaemon.log("OPEN " + device, 3);
-    mDaemon.open(device);
+    try {
+        mDaemon.open(device);
+    } catch (InsaneException & e) {
+        if (mDaemon.mReattach) {
+            mDaemon.mCurrentDevice = "";
+            mDaemon.mDevices.clear();
+        }
+        throw e;
+    }
 }
 
 InsaneDaemon::OpenGuard::~OpenGuard() {

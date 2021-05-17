@@ -70,7 +70,7 @@ public:
      * @param log_to_syslog
      * @param suspend_after_event
      */
-    void init(std::string device_name, std::string events_dir, int sleep_ms, int verbose, bool log_to_syslog, bool suspend_after_event);
+    void init(std::string device_name, std::string events_dir, int sleep_ms, int verbose, bool log_to_syslog, bool suspend_after_event, bool reattach);
 
     /**
      * Run main loop and poll sensors.
@@ -115,6 +115,9 @@ private:
 
     /// SANE version
     SANE_Int mVersionCode = 0;
+
+    /// Whether to reaattch after connection loss
+    bool mReattach = false;
 
     /// Device to use
     std::string mCurrentDevice = "";

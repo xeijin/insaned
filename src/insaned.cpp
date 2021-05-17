@@ -118,9 +118,10 @@ int main(int argc, char ** argv)
     const bool SUSPEND_AFTER_EVENT  = false;
 
     // command line options
-    const char * BASE_OPTSTRING = "d:hvVf:e:s:nLwp:";
+    const char * BASE_OPTSTRING = "d:rhvVf:e:s:nLwp:";
     option basic_options[] = {
         {"device-name", required_argument, nullptr, 'd'},
+        {"reattach", no_argument, nullptr, 'r'},
         {"help", no_argument, nullptr, 'h'},
         {"verbose", no_argument, nullptr, 'v'},
         {"version", no_argument, nullptr, 'V'},
@@ -151,6 +152,7 @@ int main(int argc, char ** argv)
     std::string pidfile = "";
     std::string logfile = LOGFILE;
     std::string events_dir = EVENTS_DIR;
+    bool reattach = false;
 
     // get dameon instance
     InsaneDaemon & daemon = InsaneDaemon::instance();
@@ -167,6 +169,9 @@ int main(int argc, char ** argv)
             break;
         case 'd':
             devname = optarg;
+            break;
+        case 'r':
+            reattach = true;
             break;
         case 'h':
             help = true;
@@ -215,7 +220,7 @@ int main(int argc, char ** argv)
     }
 
     try {
-        daemon.init(devname, events_dir, sleep_ms, verbose, do_fork && !(help || list), suspend);
+        daemon.init(devname, events_dir, sleep_ms, verbose, do_fork && !(help || list), suspend, reattach);
 
         /* print help and device list */
         if (help) {
@@ -228,6 +233,7 @@ int main(int argc, char ** argv)
                 << "-d epson) and by a \"=\" from multi-character options (e.g. --device-name=epson).\n"
                 << " -d, --device-name=DEVICE   use the given scanner device instead of the first\n"
                 << "                            available device\n"
+                << " -r, --reattach             reattach after the device disconnected (only when no device-name given\n"
                 << " -f, --log-file=FILE        use the given log file instead of default\n"
                 << "                            (" << LOGFILE << ")\n"
                 << " -e, --events-dir=DIR       execute event scripts from the given directory\n"
