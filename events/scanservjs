@@ -1,5 +1,6 @@
 #!/bin/bash
 # scanservjs (https://github.com/sbs20/scanservjs) - execute scan through scanservjs web interface
+# set up your .env file first - see _example.env for more info
 
 # this script executes a scan via a scanservjs instance - you will need an instance running first
 # it can accomodate a locally (use 127.0.0.1 for HOST) or remotely hosted scanservjs instance
@@ -16,10 +17,23 @@
 # you may also want to specify the file output directory, this must be done in the scanserv config file
 # see: https://github.com/sbs20/scanservjs/blob/master/docs/config.md for more information
 
+
 # TODO use what we get to parse first curl request for the actual device? 
 # could be USB rather than net...
 export SSJS_DEVICE_ID="net:$SANE_HOST:$DEVICE_ID" 
 echo -e "SSJS_DEVICE_ID value is: $SSJS_DEVICE_ID" # debug
+
+# helper functions
+json_array() {
+  echo -n '['
+  while [ $# -gt 0 ]; do
+    x=${1//\\/\\\\}
+    echo -n \""${x//\"/\\\"}"\"
+    [ $# -gt 1 ] && echo -n ', '
+    shift
+  done
+  echo ']'
+}
 
 # first GET current devices
 echo -e "discovering devices"
@@ -51,7 +65,7 @@ curl "$SSJS_PROTOCOL://$SSJS_HOST:$SSJS_PORT/$SSJS_PATH" \
         "brightness": $SSJS_BRIGHTNESS,
         "contrast": $SSJS_CONTRAST
     },
-    "filters": $SSJS_FILTERS,
+    "filters": $(json_array "${SSJS_FILTERS[@]}"),
     "pipeline": "$SSJS_PIPELINE",
     "batch": "$SSJS_BATCH",
     "index": 1
