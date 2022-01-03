@@ -1,0 +1,58 @@
+# scanservjs (https://github.com/sbs20/scanservjs) - modern web frontend for SANE
+# this script executes a scan via a scanservjs instance
+# it can accomodate a locally (use 127.0.0.1 for HOST) or remotely hosted scanservjs instance
+# the latter is useful when a low-power device (e.g. raspverry pi zero) is used to 'untether'
+# while a remote instance then does the heavy lifting (image processing, OCR, indexing etc)
+
+# you will need to specify the file output directory in the scanserv config.local.js file
+# see: https://github.com/sbs20/scanservjs/blob/master/docs/config.md for more info
+
+# import variable values from .env file - see: ssjs_example.env for more
+set -o allexport
+source .env
+set +o allexport
+
+# your scanner may present different options to the ones below
+# a quick way to get a definitive list for your scanner:
+## open dev tools in Chrome or Firefox and click on the 'Network' tab
+## navigate to scanservjs, populate with the desired values, then click 'Scan'
+## right click on the new request in the Network window 'scan' and choose `copy curl`
+## paste below and add/substitute any new variables in .env and below as needed.
+
+curl "$PROTOCOL://$HOST:$PORT/$PATH" \
+  -H "Connection: keep-alive" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Origin: $PROTOCOL://$HOST:$PORT" \
+  -H "Referer: $PROTOCOL://$HOST:$PORT/" \
+  --compressed \
+  --insecure \
+  --data-raw @- << EOF
+  {
+    params": {
+        "deviceId": $DEVICE_ID,
+        "resolution": $RESOLUTION,
+        "mode": $MODE,
+        "source": $SOURCE,
+        "brightness": $BRIGHTNESS,
+        "contrast": $CONTRAST
+    },
+    "filters": json_array "${FILTERS[@]}",
+    "pipeline": $PIPELINE,
+    "batch": $BATCH,
+    "index": 1
+}
+EOF
+
+# helper functions
+
+json_array() {
+  echo -n '['
+  while [ $# -gt 0 ]; do
+    x=${1//\\/\\\\}
+    echo -n \"${x//\"/\\\"}\"
+    [ $# -gt 1 ] && echo -n ', '
+    shift
+  done
+  echo ']'
+}
