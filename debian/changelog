@@ -1,3 +1,14 @@
+insaned (0.0.4) unstable; urgency=low
+  [ bsdice ]
+  * fix segmentation fault when no scanner is detected
+  [ allgoewer ]
+  * allow re-attaching if device connection is lost
+  [ xeijin ]
+  * support for initiating a scan via scanservjs - a modern web front-end for SANE (https://github.com/sbs20/scanservjs)
+  * .env driven configuration & new scan button script
+
+ -- bsdice, allgoewer & xeijin <xeijin@users.noreply.github.com>  Mon, 3 Jan 2022 00:30:00 +0000
+
 insaned (0.0.3-0ubuntu1) xenial; urgency=low
 
   * Autostart systemd service after installation
@@ -10,3 +21,4 @@ insaned (0.0.2-0ubuntu1) xenial; urgency=medium
   * Initial release
 
  -- Alex Busenius <abusenius@users.noreply.github.com>  Thu, 18 Aug 2016 21:08:42 +0200
+
